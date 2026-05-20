@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Javrs / Libras IA - Reconhecimento de Libras</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- MediaPipe HandLandmarker -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js" crossorigin="anonymous"></script>
+    <!-- TensorFlow.js (opcional, para uso futuro) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Menu lateral fixo -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <h2>Javrs</h2>
+                <span>Libras IA</span>
+            </div>
+            <nav class="nav-menu">
+                <button data-page="home" class="nav-item active">Inicio</button>
+                <button data-page="recognize" class="nav-item">Reconhecer Libras</button>
+                <button data-page="voice-to-libras" class="nav-item">Voz para Libras</button>
+                <button id="logoutBtn" class="nav-item logout">Logout</button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="security-status">Gestão segura: <span id="securityStatus">Não</span></div>
+            </div>
+        </aside>
+
+        <!-- Conteúdo principal -->
+        <main class="main-content">
+            <header class="top-header">
+                <div>
+                    <h1>Reconhecimento de Libras</h1>
+                    <div class="sub-brand">Javrs / Libras IA</div>
+                </div>
+                <div class="user-info" id="userInfo">Visitante</div>
+            </header>
+
+            <!-- Páginas dinâmicas -->
+            <div id="homePage" class="page active">
+                <div class="welcome-card card">
+                    <h2>Bem‑vindo ao tradutor de Libras inteligente</h2>
+                    <p>Sistema com reconhecimento em tempo real, coleta colaborativa e síntese de voz.</p>
+                    <button id="openModuleDemo" class="btn-primary">Abrir módulo</button>
+                </div>
+                <div class="metrics-grid" id="metricsGridAdmin" style="display: none;">
+                    <!-- Cards de métricas para admin -->
+                    <div class="metric-card card">
+                        <h3>Total de sinais coletados</h3>
+                        <div class="metric-number" id="totalSignals">0</div>
+                    </div>
+                    <div class="metric-card card">
+                        <h3>Taxa média de confiança</h3>
+                        <div class="metric-number" id="avgConfidence">0.87</div>
+                    </div>
+                    <div class="metric-card card">
+                        <h3>Usuários ativos</h3>
+                        <div class="metric-number" id="activeUsers">5</div>
+                    </div>
+                </div>
+                <div id="metricsGridUser" style="display: none;">
+                    <div class="card blocked-card">
+                        <div class="blocked-overlay">Disponível somente para administradores</div>
+                        <h3>Métricas da API</h3>
+                        <p>Faça login como admin para visualizar.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="recognizePage" class="page">
+                <div class="camera-panel card">
+                    <div class="video-container">
+                        <video id="webcam" autoplay playsinline></video>
+                        <canvas id="landmarkCanvas" width="640" height="480"></canvas>
+                    </div>
+                    <div class="controls">
+                        <button id="startRecordingBtn" class="btn-secondary">Gravar este sinal</button>
+                        <button id="recognizeBtn" class="btn-primary">Reconhecer Agora</button>
+                        <button id="toggleCoordsBtn" class="btn-outline">Mostrar coordenadas</button>
+                    </div>
+                    <div id="coordsPanel" class="coords-panel" style="display: none;">
+                        <pre id="landmarkCoords">Aguardando detecção...</pre>
+                    </div>
+                </div>
+                <div class="result-panel card">
+                    <div class="confidence-badge" id="confidenceBadge">
+                        Palavra: --- | Confiança: ---
+                    </div>
+                    <textarea id="commentField" class="comment-area" placeholder="Favor de deixar um comentário!"></textarea>
+                    <div class="recording-status" id="recordingStatus"></div>
+                </div>
+            </div>
+
+            <div id="voiceToLibrasPage" class="page">
+                <div class="voice-card card">
+                    <div class="avatar-container">
+                        <canvas id="avatarCanvas" width="150" height="150"></canvas>
+                    </div>
+                    <div class="voice-controls">
+                        <button id="startVoiceBtn" class="btn-primary mic-btn">🎤 Falar agora</button>
+                        <input type="text" id="voiceText" placeholder="Fale algo..." readonly class="voice-input">
+                    </div>
+                    <div class="translation-result">
+                        <h3>Tradução para Libras (simulação)</h3>
+                        <p id="translatedText">Aguardando comando de voz...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div id="datetime">--/--/---- --:--:--</div>
+            <div>Gestão segura: <span id="footerSecurity">Não</span></div>
+        </footer>
+    </div>
+
+    <!-- Modal de login (inicial) -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content card">
+            <h2>Acesso ao sistema</h2>
+            <input type="text" id="loginUser" placeholder="Usuário">
+            <input type="password" id="loginPass" placeholder="Senha">
+            <button id="doLoginBtn" class="btn-primary">Entrar</button>
+            <p class="demo-hint">demo: admin/admin ou user/user</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
