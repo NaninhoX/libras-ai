@@ -3,29 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Javrs / Libras IA - Reconhecimento de Libras</title>
+    <title>Libras IA - Reconhecimento de Libras</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- MediaPipe HandLandmarker -->
+    <!-- MediaPipe CDN funcional -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js" crossorigin="anonymous"></script>
-    <!-- TensorFlow.js (opcional, para uso futuro) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 </head>
 <body>
     <div class="app-container">
-        <!-- Menu lateral fixo -->
+        <!-- Menu lateral -->
         <aside class="sidebar">
             <div class="logo-area">
-                <h2>Javrs</h2>
+                <h2>Jarvis</h2>
                 <span>Libras IA</span>
             </div>
             <nav class="nav-menu">
-                <button data-page="home" class="nav-item active">Inicio</button>
-                <button data-page="recognize" class="nav-item">Reconhecer Libras</button>
-                <button data-page="voice-to-libras" class="nav-item">Voz para Libras</button>
-                <button id="logoutBtn" class="nav-item logout">Logout</button>
+                <button data-page="home" class="nav-item active">🏠 Inicio</button>
+                <button data-page="recognize" class="nav-item">🤚 Reconhecer Libras</button>
+                <button data-page="voice-to-libras" class="nav-item">🎤 Voz para Libras</button>
+                <button id="logoutBtn" class="nav-item logout">🚪 Logout</button>
             </nav>
             <div class="sidebar-footer">
-                <div class="security-status">Gestão segura: <span id="securityStatus">Não</span></div>
+                <div class="security-status">🔒 Gestão segura: <span id="securityStatus">Não</span></div>
             </div>
         </aside>
 
@@ -39,37 +37,52 @@
                 <div class="user-info" id="userInfo">Visitante</div>
             </header>
 
-            <!-- Páginas dinâmicas -->
+            <!-- Página Inicio -->
             <div id="homePage" class="page active">
                 <div class="welcome-card card">
-                    <h2>Bem‑vindo ao tradutor de Libras inteligente</h2>
-                    <p>Sistema com reconhecimento em tempo real, coleta colaborativa e síntese de voz.</p>
-                    <button id="openModuleDemo" class="btn-primary">Abrir módulo</button>
+                    <h2>Olá, <span id="userName">Visitante</span>!</h2>
+                    <p>Bem-vindo ao Jarvis Libras AI</p>
+                    <div class="welcome-buttons">
+                        <div class="module-card">
+                            <h3>🤚 Reconhecer Libras</h3>
+                            <p>Use a câmera para reconhecer sinais em Libras em tempo real.</p>
+                            <button class="btn-primary open-module" data-page="recognize">Abrir módulo</button>
+                        </div>
+                        <div class="module-card">
+                            <h3>🎤 Voz para Libras</h3>
+                            <p>Fale algo e veja a tradução em Libras com nosso avatar.</p>
+                            <button class="btn-primary open-module" data-page="voice-to-libras">Abrir módulo</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="metrics-grid" id="metricsGridAdmin" style="display: none;">
-                    <!-- Cards de métricas para admin -->
+
+                <!-- Métricas Admin -->
+                <div id="metricsGridAdmin" class="metrics-grid" style="display: none;">
                     <div class="metric-card card">
                         <h3>Total de sinais coletados</h3>
                         <div class="metric-number" id="totalSignals">0</div>
                     </div>
                     <div class="metric-card card">
                         <h3>Taxa média de confiança</h3>
-                        <div class="metric-number" id="avgConfidence">0.87</div>
+                        <div class="metric-number" id="avgConfidence">0.00</div>
                     </div>
                     <div class="metric-card card">
                         <h3>Usuários ativos</h3>
-                        <div class="metric-number" id="activeUsers">5</div>
+                        <div class="metric-number" id="activeUsers">1</div>
                     </div>
                 </div>
-                <div id="metricsGridUser" style="display: none;">
+
+                <!-- Métricas User (bloqueado) -->
+                <div id="metricsGridUser" class="metrics-grid" style="display: none;">
                     <div class="card blocked-card">
-                        <div class="blocked-overlay">Disponível somente para administradores</div>
+                        <div class="blocked-overlay">🔒 Disponível somente para administradores</div>
                         <h3>Métricas da API</h3>
                         <p>Faça login como admin para visualizar.</p>
                     </div>
                 </div>
             </div>
 
+            <!-- Página Reconhecer Libras -->
             <div id="recognizePage" class="page">
                 <div class="camera-panel card">
                     <div class="video-container">
@@ -77,9 +90,9 @@
                         <canvas id="landmarkCanvas" width="640" height="480"></canvas>
                     </div>
                     <div class="controls">
-                        <button id="startRecordingBtn" class="btn-secondary">Gravar este sinal</button>
-                        <button id="recognizeBtn" class="btn-primary">Reconhecer Agora</button>
-                        <button id="toggleCoordsBtn" class="btn-outline">Mostrar coordenadas</button>
+                        <button id="startRecordingBtn" class="btn-secondary">📹 Gravar este sinal</button>
+                        <button id="recognizeBtn" class="btn-primary">🔍 Reconhecer Agora</button>
+                        <button id="toggleCoordsBtn" class="btn-outline">📊 Mostrar coordenadas</button>
                     </div>
                     <div id="coordsPanel" class="coords-panel" style="display: none;">
                         <pre id="landmarkCoords">Aguardando detecção...</pre>
@@ -90,10 +103,11 @@
                         Palavra: --- | Confiança: ---
                     </div>
                     <textarea id="commentField" class="comment-area" placeholder="Favor de deixar um comentário!"></textarea>
-                    <div class="recording-status" id="recordingStatus"></div>
+                    <div id="recordingStatus" class="recording-status"></div>
                 </div>
             </div>
 
+            <!-- Página Voz para Libras -->
             <div id="voiceToLibrasPage" class="page">
                 <div class="voice-card card">
                     <div class="avatar-container">
@@ -101,23 +115,25 @@
                     </div>
                     <div class="voice-controls">
                         <button id="startVoiceBtn" class="btn-primary mic-btn">🎤 Falar agora</button>
-                        <input type="text" id="voiceText" placeholder="Fale algo..." readonly class="voice-input">
+                        <input type="text" id="voiceText" placeholder="Tudo bem?" readonly class="voice-input">
                     </div>
                     <div class="translation-result">
-                        <h3>Tradução para Libras (simulação)</h3>
+                        <h3>Tradução para Libras</h3>
                         <p id="translatedText">Aguardando comando de voz...</p>
                     </div>
                 </div>
             </div>
         </main>
 
+        <!-- Footer -->
         <footer class="footer">
-            <div id="datetime">--/--/---- --:--:--</div>
-            <div>Gestão segura: <span id="footerSecurity">Não</span></div>
+            <div>📅 <span id="dateAccess">--/--/----</span></div>
+            <div>⏰ <span id="timeAccess">--:--</span></div>
+            <div>🔒 Gestão segura: <span id="footerSecurity">Não</span></div>
         </footer>
     </div>
 
-    <!-- Modal de login (inicial) -->
+    <!-- Modal Login -->
     <div id="loginModal" class="modal">
         <div class="modal-content card">
             <h2>Acesso ao sistema</h2>
