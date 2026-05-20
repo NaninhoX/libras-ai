@@ -7,11 +7,10 @@ let lastLandmarks = null;
 let recording = false;
 let recordedFrames = [];
 const FRAMES_TO_RECORD = 30;
-let currentRole = null;
-let recognitionInterval = null;
+let currentRole = null; // 'admin' ou 'user'
 let currentStream = null;
 
-// Elementos do DOM
+// Elementos DOM
 const pages = {
     home: document.getElementById('homePage'),
     recognize: document.getElementById('recognizePage'),
@@ -20,15 +19,24 @@ const pages = {
 const navItems = document.querySelectorAll('.nav-item');
 const loginModal = document.getElementById('loginModal');
 const userInfoSpan = document.getElementById('userInfo');
+const userNameSpan = document.getElementById('userName');
 const securitySpan = document.getElementById('securityStatus');
 const footerSecurity = document.getElementById('footerSecurity');
 
-// ==================== MEDIAPIPE CORRIGIDO ====================
+// ==================== MEDIAPIPE ====================
 async function initMediaPipe() {
     try {
-        // Corrigir a URL do wasm
+        // Aguarda o script carregar
+        if (!window.vision) {
+            console.log("Aguardando MediaPipe carregar...");
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!window.vision) {
+                throw new Error("MediaPipe não carregou");
+            }
+        }
+        
         const filesetResolver = await window.vision.FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"  // ← versão atualizada
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
         );
         
         handLandmarker = await window.vision.HandLandmarker.createFromOptions(filesetResolver, {
@@ -39,9 +47,9 @@ async function initMediaPipe() {
             numHands: 1,
             runningMode: "VIDEO"
         });
-        console.log("MediaPipe pronto");
+        console.log("✅ MediaPipe pronto");
     } catch (error) {
-        console.error("Erro ao inicializar MediaPipe:", error);
+        console.error("❌ Erro MediaPipe:", error);
     }
 }
 
@@ -58,33 +66,46 @@ async function startWebcam() {
         });
     } catch (err) {
         console.error("Erro webcam:", err);
-        alert("Permita acesso à câmera.");
+        alert("⚠️ Permita acesso à câmera para usar o reconhecimento.");
     }
 }
 
 function drawLandmarks(landmarks, videoWidth, videoHeight) {
     if (!canvasCtx) return;
-    canvas.width = videoWidth;
-    canvas.height = videoHeight;
+    if (videoWidth && videoHeight) {
+        canvas.width = videoWidth;
+        canvas.height = videoHeight;
+    }
     canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
     if (!landmarks) return;
     
-    canvasCtx.beginPath();
     canvasCtx.strokeStyle = "#00b4d8";
     canvasCtx.fillStyle = "#ffffff";
     canvasCtx.lineWidth = 2;
+    
+    // Desenha pontos
     for (let lm of landmarks) {
         const x = lm.x * canvas.width;
         const y = lm.y * canvas.height;
         canvasCtx.beginPath();
-        canvasCtx.arc(x, y, 4, 0, 2 * Math.PI);
+        canvasCtx.arc(x, y, 5, 0, 2 * Math.PI);
         canvasCtx.fill();
         canvasCtx.stroke();
     }
-    // Desenhar conexões simplificadas
-    const connections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+    
+    // Conexões dos dedos
+    const connections = [
+        [0,1],[1,2],[2,3],[3,4],
+        [0,5],[5,6],[6,7],[7,8],
+        [5,9],[9,10],[10,11],[11,12],
+        [9,13],[13,14],[14,15],[15,16],
+        [13,17],[17,18],[18,19],[19,20],
+        [0,17]
+    ];
+    
     canvasCtx.beginPath();
     canvasCtx.strokeStyle = "#00b4d8";
+    canvasCtx.lineWidth = 2;
     for (let [a,b] of connections) {
         if (landmarks[a] && landmarks[b]) {
             const p1 = {x: landmarks[a].x * canvas.width, y: landmarks[a].y * canvas.height};
@@ -99,11 +120,11 @@ function drawLandmarks(landmarks, videoWidth, videoHeight) {
 
 function updateCoordsDisplay(landmarks) {
     const coordsDiv = document.getElementById('landmarkCoords');
-    if (!landmarks) {
+    if (!landmarks || landmarks.length === 0) {
         coordsDiv.innerText = "Nenhuma mão detectada";
         return;
     }
-    let text = "Pontos (x,y,z):\n";
+    let text = "📍 Pontos da mão (x, y, z):\n";
     landmarks.forEach((p, idx) => {
         text += `${idx}: (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)})\n`;
     });
@@ -118,13 +139,17 @@ function detectFrame() {
     }
     const startTime = performance.now();
     const results = handLandmarker.detectForVideo(video, startTime);
-    if (results.landmarks.length > 0) {
+    
+    if (results.landmarks && results.landmarks.length > 0) {
         lastLandmarks = results.landmarks[0];
         drawLandmarks(lastLandmarks, video.videoWidth, video.videoHeight);
-        if (document.getElementById('coordsPanel') && document.getElementById('coordsPanel').style.display !== 'none') {
+        
+        const coordsPanel = document.getElementById('coordsPanel');
+        if (coordsPanel && coordsPanel.style.display !== 'none') {
             updateCoordsDisplay(lastLandmarks);
         }
-        // Se estiver gravando, armazena os landmarks
+        
+        // Gravação de sinal
         if (recording && recordedFrames.length < FRAMES_TO_RECORD) {
             const palmBase = lastLandmarks[0];
             const normalized = lastLandmarks.map(lm => ({
@@ -135,50 +160,56 @@ function detectFrame() {
             recordedFrames.push(normalized);
             const statusDiv = document.getElementById('recordingStatus');
             if (statusDiv) {
-                statusDiv.innerText = `Gravando... ${recordedFrames.length}/${FRAMES_TO_RECORD}`;
+                statusDiv.innerText = `📹 Gravando... ${recordedFrames.length}/${FRAMES_TO_RECORD}`;
             }
             if (recordedFrames.length === FRAMES_TO_RECORD) {
                 finishRecording();
             }
         }
     } else {
-        drawLandmarks(null, video.videoWidth, video.videoHeight);
+        drawLandmarks(null);
     }
     requestAnimationFrame(detectFrame);
 }
 
-// ==================== COLEÇÃO DE SINAIS ====================
+// ==================== COLETA DE SINAIS ====================
 function startRecording() {
-    if (recording) return;
+    if (recording) {
+        alert("Já está gravando!");
+        return;
+    }
     if (!lastLandmarks) {
-        alert("Mão não detectada. Mostre sua mão para a câmera.");
+        alert("✋ Mostre sua mão para a câmera primeiro!");
         return;
     }
     recording = true;
     recordedFrames = [];
     const statusDiv = document.getElementById('recordingStatus');
-    if (statusDiv) statusDiv.innerText = "Gravando... 0/30";
+    if (statusDiv) statusDiv.innerText = "📹 Gravando... 0/" + FRAMES_TO_RECORD;
 }
 
 async function finishRecording() {
     recording = false;
-    const signName = prompt("Digite o significado do sinal (ex: AJUDA, OLA):");
+    const signName = prompt("✍️ Digite o significado do sinal (ex: AJUDA, AMERICA, ACONTECER):");
     if (!signName) {
         const statusDiv = document.getElementById('recordingStatus');
-        if (statusDiv) statusDiv.innerText = "Gravação cancelada.";
+        if (statusDiv) statusDiv.innerText = "❌ Gravação cancelada.";
         recordedFrames = [];
         return;
     }
+    
     const data = {
         sign: signName.toUpperCase(),
         timestamp: new Date().toISOString(),
         landmarks_sequence: recordedFrames
     };
+    
     // Salvar no localStorage
     let allSigns = JSON.parse(localStorage.getItem('libras_signs') || '[]');
     allSigns.push(data);
     localStorage.setItem('libras_signs', JSON.stringify(allSigns));
-    // Download JSON
+    
+    // Download do JSON
     const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
     const a = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -186,17 +217,16 @@ async function finishRecording() {
     a.download = `sinal_${signName}_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    
     const statusDiv = document.getElementById('recordingStatus');
-    if (statusDiv) statusDiv.innerHTML = `Sinal "${signName}" salvo! Total: ${allSigns.length}`;
+    if (statusDiv) {
+        statusDiv.innerHTML = `✅ Sinal "${signName}" salvo! Total: ${allSigns.length} sinais`;
+    }
     recordedFrames = [];
     updateMetricsDisplay();
 }
 
 // ==================== RECONHECIMENTO ====================
-function normalizeSequence(seq) {
-    return seq;
-}
-
 function euclideanDistance(seq1, seq2) {
     let total = 0;
     for (let f = 0; f < seq1.length; f++) {
@@ -212,9 +242,10 @@ function euclideanDistance(seq1, seq2) {
 
 async function recognizeSign() {
     if (!lastLandmarks) {
-        alert("Mostre sua mão para a câmera.");
+        alert("✋ Mostre sua mão para a câmera!");
         return;
     }
+    
     // Coletar 30 frames atuais
     let tempFrames = [];
     const promise = new Promise((resolve) => {
@@ -236,14 +267,16 @@ async function recognizeSign() {
             }
         }, 100);
     });
-    const currentSeq = await promise;
     
+    const currentSeq = await promise;
     const allSigns = JSON.parse(localStorage.getItem('libras_signs') || '[]');
+    
     if (allSigns.length === 0) {
         const badge = document.getElementById('confidenceBadge');
         if (badge) badge.innerHTML = "Palavra: --- | Confiança: Nenhum sinal cadastrado";
         return;
     }
+    
     let bestMatch = null;
     let bestDistance = Infinity;
     for (let signData of allSigns) {
@@ -253,12 +286,13 @@ async function recognizeSign() {
             bestMatch = signData;
         }
     }
+    
     let confidence = 1 / (1 + bestDistance);
     confidence = Math.min(0.99, confidence);
+    
     let confidenceColor = "var(--primary-cyan)";
     if (confidence < 0.5) confidenceColor = "var(--danger-red)";
     else if (confidence < 0.8) confidenceColor = "var(--primary-orange)";
-    else confidenceColor = "var(--primary-cyan)";
     
     const badge = document.getElementById('confidenceBadge');
     if (badge) {
@@ -271,6 +305,7 @@ async function recognizeSign() {
 
 // ==================== VOZ PARA LIBRAS ====================
 let speechRecognition = null;
+
 function initSpeech() {
     if ('webkitSpeechRecognition' in window) {
         speechRecognition = new webkitSpeechRecognition();
@@ -282,19 +317,55 @@ function initSpeech() {
             const voiceText = document.getElementById('voiceText');
             const translatedText = document.getElementById('translatedText');
             if (voiceText) voiceText.value = text;
-            if (translatedText) translatedText.innerHTML = `🎬 Tradução para Libras (simulação): "${text.toUpperCase()}" em sinais.`;
-            drawAvatar();
+            if (translatedText) {
+                translatedText.innerHTML = `🎬 Tradução: "${text.toUpperCase()}" em Libras`;
+            }
+            animateAvatar();
         };
-        speechRecognition.onerror = () => alert("Erro no microfone.");
+        speechRecognition.onerror = () => alert("🎤 Erro no microfone. Verifique as permissões.");
+        console.log("✅ Reconhecimento de voz pronto");
     } else {
-        alert("Seu navegador não suporta Web Speech API.");
+        console.warn("Web Speech API não suportada");
+        alert("Seu navegador não suporta reconhecimento de voz.");
     }
 }
+
 function startVoiceRecognition() {
     if (speechRecognition) {
         speechRecognition.start();
+    } else {
+        alert("Reconhecimento de voz não disponível.");
     }
 }
+
+function animateAvatar() {
+    const avatarCanvas = document.getElementById('avatarCanvas');
+    if (!avatarCanvas) return;
+    const ctx = avatarCanvas.getContext('2d');
+    ctx.fillStyle = "#2c3e50";
+    ctx.fillRect(0, 0, 150, 150);
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(75, 60, 25, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(65, 55, 3, 0, 2 * Math.PI);
+    ctx.arc(85, 55, 3, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(75, 70, 8, 0, Math.PI);
+    ctx.fillStyle = "#e74c3c";
+    ctx.fill();
+    ctx.fillStyle = "white";
+    ctx.fillRect(40, 80, 20, 10);
+    ctx.fillRect(90, 80, 20, 10);
+    ctx.fillStyle = "#00b4d8";
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("ouvindo...", 50, 130);
+    setTimeout(drawAvatar, 800);
+}
+
 function drawAvatar() {
     const canvas = document.getElementById('avatarCanvas');
     if (!canvas) return;
@@ -319,7 +390,7 @@ function drawAvatar() {
     ctx.fillRect(90, 80, 20, 10);
 }
 
-// ==================== LOGIN CORRIGIDO ====================
+// ==================== LOGIN ====================
 function doLogin() {
     const user = document.getElementById('loginUser').value;
     const pass = document.getElementById('loginPass').value;
@@ -328,6 +399,7 @@ function doLogin() {
     if (user === 'admin' && pass === 'admin') {
         currentRole = 'admin';
         if (userInfoSpan) userInfoSpan.innerText = 'Admin';
+        if (userNameSpan) userNameSpan.innerText = 'Maria';
         if (securitySpan) securitySpan.innerText = 'Sim';
         if (footerSecurity) footerSecurity.innerText = 'Sim';
         if (modal) modal.style.display = 'none';
@@ -337,13 +409,14 @@ function doLogin() {
     else if (user === 'user' && pass === 'user') {
         currentRole = 'user';
         if (userInfoSpan) userInfoSpan.innerText = 'Usuário';
+        if (userNameSpan) userNameSpan.innerText = 'Visitante';
         if (securitySpan) securitySpan.innerText = 'Não';
         if (footerSecurity) footerSecurity.innerText = 'Não';
         if (modal) modal.style.display = 'none';
         updateUIBasedOnRole();
     } 
     else {
-        alert("Credenciais inválidas. Use admin/admin ou user/user");
+        alert("❌ Credenciais inválidas.\nUse admin/admin ou user/user");
     }
 }
 
@@ -355,7 +428,7 @@ function updateUIBasedOnRole() {
         if (userMetrics) userMetrics.style.display = 'none';
     } else {
         if (adminMetrics) adminMetrics.style.display = 'none';
-        if (userMetrics) userMetrics.style.display = 'block';
+        if (userMetrics) userMetrics.style.display = 'grid';
     }
 }
 
@@ -363,8 +436,11 @@ function updateMetricsDisplay() {
     const allSigns = JSON.parse(localStorage.getItem('libras_signs') || '[]');
     const totalSignals = document.getElementById('totalSignals');
     if (totalSignals) totalSignals.innerText = allSigns.length;
+    
+    // Calcula média de confiança simulada baseada nos sinais
+    let avgConf = 0.75 + (Math.random() * 0.2);
     const avgConfidence = document.getElementById('avgConfidence');
-    if (avgConfidence) avgConfidence.innerText = (Math.random() * 0.2 + 0.75).toFixed(2);
+    if (avgConfidence) avgConfidence.innerText = avgConf.toFixed(2);
 }
 
 function logout() {
@@ -372,12 +448,12 @@ function logout() {
     const modal = document.getElementById('loginModal');
     if (modal) modal.style.display = 'flex';
     if (userInfoSpan) userInfoSpan.innerText = 'Visitante';
+    if (userNameSpan) userNameSpan.innerText = 'Visitante';
     if (securitySpan) securitySpan.innerText = 'Não';
     if (footerSecurity) footerSecurity.innerText = 'Não';
     if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
     }
-    location.reload();
 }
 
 // ==================== NAVEGAÇÃO ====================
@@ -386,6 +462,7 @@ function navigateTo(pageId) {
         if (pages[id]) pages[id].classList.remove('active');
     });
     if (pages[pageId]) pages[pageId].classList.add('active');
+    
     navItems.forEach(btn => btn.classList.remove('active'));
     const activeNav = Array.from(navItems).find(btn => btn.dataset.page === pageId);
     if (activeNav) activeNav.classList.add('active');
@@ -397,11 +474,16 @@ function setupNavigation() {
             btn.addEventListener('click', () => navigateTo(btn.dataset.page));
         }
     });
+    
+    document.querySelectorAll('.open-module').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const page = btn.dataset.page;
+            if (page) navigateTo(page);
+        });
+    });
+    
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
-    
-    const openModuleBtn = document.getElementById('openModuleDemo');
-    if (openModuleBtn) openModuleBtn.addEventListener('click', () => alert("Módulo de expansão em breve. Versão web demonstrativa."));
     
     const startRecordingBtn = document.getElementById('startRecordingBtn');
     if (startRecordingBtn) startRecordingBtn.addEventListener('click', startRecording);
@@ -424,17 +506,24 @@ function setupNavigation() {
     if (doLoginBtn) doLoginBtn.addEventListener('click', doLogin);
 }
 
-// ==================== RELÓGIO ====================
+// ==================== DATA E HORA ====================
 function updateDateTime() {
     const now = new Date();
-    const formatted = now.toLocaleString('pt-BR');
-    const datetimeDiv = document.getElementById('datetime');
-    if (datetimeDiv) datetimeDiv.innerText = formatted;
-    setTimeout(updateDateTime, 1000);
+    const dateStr = now.toLocaleDateString('pt-BR');
+    const timeStr = now.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    
+    const dateElement = document.getElementById('dateAccess');
+    const timeElement = document.getElementById('timeAccess');
+    if (dateElement) dateElement.innerText = dateStr;
+    if (timeElement) timeElement.innerText = timeStr;
+    
+    setTimeout(updateDateTime, 60000);
 }
 
 // ==================== MAIN ====================
 window.onload = async () => {
+    console.log("🚀 Iniciando aplicação...");
+    
     video = document.getElementById('webcam');
     canvas = document.getElementById('landmarkCanvas');
     if (canvas) canvasCtx = canvas.getContext('2d');
@@ -447,7 +536,7 @@ window.onload = async () => {
     initSpeech();
     drawAvatar();
     
-    // Ajustar canvas tamanho
+    // Ajuste do canvas
     setInterval(() => {
         if (video && video.videoWidth && canvas) {
             canvas.width = video.videoWidth;
@@ -455,6 +544,7 @@ window.onload = async () => {
         }
     }, 1000);
     
-    // Forçar login inicial
     if (loginModal) loginModal.style.display = 'flex';
+    
+    console.log("✅ App pronto!");
 };
