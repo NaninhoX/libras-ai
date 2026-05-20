@@ -26,14 +26,9 @@ const footerSecurity = document.getElementById('footerSecurity');
 // ==================== MEDIAPIPE CORRIGIDO ====================
 async function initMediaPipe() {
     try {
-        // Verifica se o MediaPipe foi carregado
-        if (!window.vision) {
-            console.error("MediaPipe Vision não carregado");
-            return;
-        }
-        
+        // Corrigir a URL do wasm
         const filesetResolver = await window.vision.FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"  // ← versão atualizada
         );
         
         handLandmarker = await window.vision.HandLandmarker.createFromOptions(filesetResolver, {
